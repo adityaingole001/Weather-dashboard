@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import SearchEngine from "./components/SearchEngine";
 import Forecast from "./components/Forecast";
@@ -13,80 +13,68 @@ function App() {
     error: false,
   });
   const [forecast, setForecast] = useState([]);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
 
-  // Determine the background class based on weather conditions
-  const getBackgroundClass = () => {
-    if (!weather.data.condition) return "App"; // Default
-
+  const apiKey = "b03a640e5ef6980o4da35b006t5f2942";
+  
+  // Memoized background class based on weather condition
+  const backgroundClass = useMemo(() => {
+    if (!weather.data.condition) return "App";
     const description = weather.data.condition.description.toLowerCase();
-
     if (description.includes("clear")) return "clear-weather";
     if (description.includes("cloud")) return "cloudy-weather";
     if (description.includes("rain")) return "rainy-weather";
     if (description.includes("snow")) return "snowy-weather";
-    
-    return "App"; // Default
-  };
+    return "App";
+  }, [weather.data.condition]);
 
-  // Search function to fetch weather data based on user query
-  const search = async (event) => {
-    event.preventDefault();
-    if (event.type === "click" || (event.type === "keypress" && event.key === "Enter")) {
-      setWeather({ ...weather, loading: true });
-      const apiKey = "b03a640e5ef6980o4da35b006t5f2942";
-      const currentUrl = `https://api.shecodes.io/weather/v1/current?query=${query}&key=${apiKey}`;
-      const forecastUrl = `https://api.shecodes.io/weather/v1/forecast?query=${query}&key=${apiKey}&units=metric`;
+  const fetchData = useCallback(async (location) => {
+    const currentTime = Date.now();
 
-      try {
-        const [currentRes, forecastRes] = await Promise.all([
-          axios.get(currentUrl),
-          axios.get(forecastUrl),
-        ]);
+    // Rate limiter: wait 5 seconds between API requests
+    if (currentTime - lastFetchTime < 5000) {
+      console.warn("Rate limit reached, try again later.");
+      return;
+    }
 
-        setWeather({ data: currentRes.data, loading: false, error: false });
-        setForecast(forecastRes.data.daily);
-      } catch (error) {
+    setLastFetchTime(currentTime);
+    setWeather((prev) => ({ ...prev, loading: true }));
+
+    const currentUrl = `https://api.shecodes.io/weather/v1/current?query=${location}&key=${apiKey}`;
+    const forecastUrl = `https://api.shecodes.io/weather/v1/forecast?query=${location}&key=${apiKey}&units=metric`;
+
+    try {
+      const [currentRes, forecastRes] = await Promise.all([
+        axios.get(currentUrl),
+        axios.get(forecastUrl),
+      ]);
+      setWeather({ data: currentRes.data, loading: false, error: false });
+      setForecast(forecastRes.data.daily);
+    } catch (error) {
+      if (error.response && error.response.status === 429) {
+        console.error("Too many requests. Retrying after a delay...");
+        setTimeout(() => fetchData(location), 10000); // Retry after 10 seconds
+      } else {
         setWeather({ data: {}, loading: false, error: true });
         setForecast([]);
-        console.log("error", error);
+        console.error("error", error);
       }
     }
-  };
+  }, [lastFetchTime]);
 
-  // Fetch default data for Mumbai on mount
+  // Initial fetch for Mumbai data
   useEffect(() => {
-    const fetchData = async () => {
-      const apiKey = "b03a640e5ef6980o4da35b006t5f2942";
-      const currentUrl = `https://api.shecodes.io/weather/v1/current?query=Mumbai&key=${apiKey}`;
-      const forecastUrl = `https://api.shecodes.io/weather/v1/forecast?query=Mumbai&key=${apiKey}&units=metric`;
-
-      try {
-        const [currentRes, forecastRes] = await Promise.all([
-          axios.get(currentUrl),
-          axios.get(forecastUrl),
-        ]);
-
-        setWeather({ data: currentRes.data, loading: false, error: false });
-        setForecast(forecastRes.data.daily);
-      } catch (error) {
-        setWeather({ data: {}, loading: false, error: true });
-        setForecast([]);
-        console.log("error", error);
-      }
-    };
-
-    fetchData();
-  }, []);
+    fetchData("Mumbai");
+  }, [fetchData]);
 
   return (
-    <div className={`App ${getBackgroundClass()}`}>
-      {/* Pass search, query, and setQuery to SearchEngine */}
-      <SearchEngine query={query} setQuery={setQuery} search={search} />
-      
+    <div className={`App ${backgroundClass}`}>
+      <SearchEngine query={query} setQuery={setQuery} search={() => fetchData(query)} />
       {weather.loading && <h4>Searching..</h4>}
-      {weather.error && <span className="error-message">Sorry, city not found. Please try again.</span>}
-      
-      {weather.data && weather.data.condition && (
+      {weather.error && (
+        <span className="error-message">Sorry, city not found or rate limit exceeded. Please try again later.</span>
+      )}
+      {!weather.loading && !weather.error && weather.data && weather.data.condition && (
         <Forecast weather={weather} forecast={forecast} />
       )}
     </div>

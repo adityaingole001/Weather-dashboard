@@ -18,7 +18,7 @@ function SearchEngine({ query, setQuery, search }) {
         name="query"
         aria-label="City search"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => setQuery(e.target.value)} 
         onKeyDown={handleKeyDown}
       />
       <button onClick={search} aria-label="Search button">
@@ -36,3 +36,4 @@ SearchEngine.propTypes = {
 };
 
 export default SearchEngine;
+

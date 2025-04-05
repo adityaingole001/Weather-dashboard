@@ -1,5 +1,4 @@
 import React from "react";
-import ReactAnimatedWeather from "react-animated-weather";
 
 function Forecast({ weather, forecast }) {
   const { data } = weather;
@@ -59,3 +58,4 @@ function Forecast({ weather, forecast }) {
 }
 
 export default Forecast;
+

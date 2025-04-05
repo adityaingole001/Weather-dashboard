@@ -14,6 +14,7 @@
     "axios": "^1.4.0",
     "bootstrap": "^5.3.3",
     "csbbust": "^1.0.1",
+    "firebase": "^11.0.1",
     "loader-utils": "^3.2.1",
     "react": "^18.2.0",
     "react-animated-icons": "^1.0.0",
