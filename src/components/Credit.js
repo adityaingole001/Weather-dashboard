@@ -4,11 +4,23 @@ export default function Credit() {
   return (
     <div className="credit">
       <p>
-        <a href="https://www.shecodes.io/graduates/73033-chaimae-lamirine" target="_blank" rel="noopener noreferrer">
-          {" "}
-        </a>,{" "}
-        <a href="https://github.com/shemmee/React-Weather-App" target="_blank" rel="noopener noreferrer">
+        Inspired by the{" "}
+        <a
+          href="https://github.com/s-shemmee/React-Weather-App"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          open-source weather app
         </a>
+        . View its{" "}
+        <a
+          href="https://react-weather-app-shemmee.netlify.app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          live demo
+        </a>
+        .
       </p>
     </div>
   );
