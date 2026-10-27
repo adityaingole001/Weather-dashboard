@@ -1,23 +1,24 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import axios from "axios";
 import SearchEngine from "./components/SearchEngine";
 import Forecast from "./components/Forecast";
+import Credit from "./components/Credit";
 import "./styles.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 
 function App() {
   const [query, setQuery] = useState("");
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [weather, setWeather] = useState({
     loading: true,
     data: {},
     error: false,
   });
   const [forecast, setForecast] = useState([]);
-  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const requestId = useRef(0);
 
   const apiKey = "b03a640e5ef6980o4da35b006t5f2942";
-  
-  // Memoized background class based on weather condition
+
   const backgroundClass = useMemo(() => {
     if (!weather.data.condition) return "App";
     const description = weather.data.condition.description.toLowerCase();
@@ -29,54 +30,85 @@ function App() {
   }, [weather.data.condition]);
 
   const fetchData = useCallback(async (location) => {
-    const currentTime = Date.now();
+    const city = location.trim();
+    if (!city) return;
 
-    // Rate limiter: wait 5 seconds between API requests
-    if (currentTime - lastFetchTime < 5000) {
-      console.warn("Rate limit reached, try again later.");
-      return;
-    }
+    const activeRequest = ++requestId.current;
+    setWeather({ data: {}, loading: true, error: false });
+    setForecast([]);
 
-    setLastFetchTime(currentTime);
-    setWeather((prev) => ({ ...prev, loading: true }));
-
-    const currentUrl = `https://api.shecodes.io/weather/v1/current?query=${location}&key=${apiKey}`;
-    const forecastUrl = `https://api.shecodes.io/weather/v1/forecast?query=${location}&key=${apiKey}&units=metric`;
+    const encodedCity = encodeURIComponent(city);
+    const currentUrl = `https://api.shecodes.io/weather/v1/current?query=${encodedCity}&key=${apiKey}`;
+    const forecastUrl = `https://api.shecodes.io/weather/v1/forecast?query=${encodedCity}&key=${apiKey}&units=metric`;
 
     try {
       const [currentRes, forecastRes] = await Promise.all([
         axios.get(currentUrl),
         axios.get(forecastUrl),
       ]);
-      setWeather({ data: currentRes.data, loading: false, error: false });
-      setForecast(forecastRes.data.daily);
-    } catch (error) {
-      if (error.response && error.response.status === 429) {
-        console.error("Too many requests. Retrying after a delay...");
-        setTimeout(() => fetchData(location), 10000); // Retry after 10 seconds
-      } else {
-        setWeather({ data: {}, loading: false, error: true });
-        setForecast([]);
-        console.error("error", error);
-      }
-    }
-  }, [lastFetchTime]);
+      if (activeRequest !== requestId.current) return;
 
-  // Initial fetch for Mumbai data
+      setWeather({ data: currentRes.data, loading: false, error: false });
+      setForecast(Array.isArray(forecastRes.data.daily) ? forecastRes.data.daily : []);
+    } catch (error) {
+      if (activeRequest !== requestId.current) return;
+      setWeather({ data: {}, loading: false, error: true });
+      setForecast([]);
+      console.error("Error fetching weather data:", error);
+    }
+  }, [apiKey]);
+
   useEffect(() => {
     fetchData("Mumbai");
   }, [fetchData]);
 
+  const search = (event) => {
+    event.preventDefault();
+    fetchData(query);
+  };
+
   return (
-    <div className={`App ${backgroundClass}`}>
-      <SearchEngine query={query} setQuery={setQuery} search={() => fetchData(query)} />
-      {weather.loading && <h4>Searching..</h4>}
-      {weather.error && (
-        <span className="error-message">Sorry, city not found or rate limit exceeded. Please try again later.</span>
-      )}
-      {!weather.loading && !weather.error && weather.data && weather.data.condition && (
-        <Forecast weather={weather} forecast={forecast} />
-      )}
+    <div className={`App ${backgroundClass}`} data-theme={isDarkMode ? "dark" : "light"}>
+      <header className="app-header">
+        <a className="brand" href="/" aria-label="Weather dashboard home">
+          <span className="brand-icon" aria-hidden="true">
+            <i className="fas fa-cloud-sun" />
+          </span>
+          <span>Weather<span className="brand-accent">ly</span></span>
+        </a>
+        <p>Weather, wherever you are.</p>
+        <button
+          type="button"
+          className="theme-toggle"
+          aria-label={`Switch to ${isDarkMode ? "light" : "dark"} mode`}
+          aria-pressed={isDarkMode}
+          onClick={() => setIsDarkMode((current) => !current)}
+        >
+          <i
+            className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`}
+            aria-hidden="true"
+          />
+          {isDarkMode ? "Light mode" : "Dark mode"}
+        </button>
+      </header>
+
+      <main className="dashboard">
+        <SearchEngine query={query} setQuery={setQuery} search={search} />
+        {weather.loading && (
+          <p className="status-message" role="status">
+            Finding your forecast...
+          </p>
+        )}
+        {weather.error && (
+          <p className="error-message" role="alert">
+            We couldn’t find that city. Check the spelling and try again.
+          </p>
+        )}
+        {!weather.loading && !weather.error && weather.data.condition && (
+          <Forecast weather={weather} forecast={forecast} />
+        )}
+      </main>
+      <Credit />
     </div>
   );
 }

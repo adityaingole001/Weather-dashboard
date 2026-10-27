@@ -2,29 +2,26 @@ import React from "react";
 import PropTypes from "prop-types";
 
 function SearchEngine({ query, setQuery, search }) {
-  // Handler function for Enter key press
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      search(e);
-    }
-  };
-
   return (
-    <div className="SearchEngine">
+    <form className="SearchEngine" onSubmit={search} style={{border:'1px solid skyblue', borderRadius:'10px', padding:'5px', boxShadow:'0 2px 4px rgba(0, 0, 0, 0.1)'}}>
+      <label className="visually-hidden" htmlFor="city-search">
+        Search for a city
+      </label>
       <input
         type="text"
         className="city-search"
-        placeholder="Enter city name"
+        id="city-search"
+        placeholder="Search any city..."
         name="query"
         aria-label="City search"
+        autoComplete="off"
         value={query}
-        onChange={(e) => setQuery(e.target.value)} 
-        onKeyDown={handleKeyDown}
+        onChange={(e) => setQuery(e.target.value)}
       />
-      <button onClick={search} aria-label="Search button">
+      <button type="submit" aria-label="Search weather">
         <i className="fas fa-search" style={{ fontSize: "18px" }}></i>
       </button>
-    </div>
+    </form>
   );
 }
 
@@ -36,4 +33,3 @@ SearchEngine.propTypes = {
 };
 
 export default SearchEngine;
-
